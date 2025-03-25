@@ -178,7 +178,7 @@ Possible parameters:
 | Parameter | Description |
 |-------------|-------------|
 | `vps_id`    | id vps: [list of all orders](#list-of-all-orders)    |
-| `system`    | new OS: [List of available OS](#List-of-available-OS)     |
+| `system`    | new OS: [list of available OS](#List-of-available-OS)     |
 
 Example of a successful response:
 
