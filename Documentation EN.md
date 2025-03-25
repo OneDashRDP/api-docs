@@ -161,7 +161,7 @@ Possible parameters:
 | Parameter | Description |
 |-------------|-------------|
 | `order_id`    | order id    |
-| `new_tariff_id`    | new tariff id: [list of tariffs](#Tariff-list)     |
+| `new_tariff_id`    | new tariff id: [list of tariffs](#List-of-tariffs)     |
 
 Example of a successful response:
 
