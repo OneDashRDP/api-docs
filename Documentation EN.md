@@ -79,7 +79,7 @@ Example of a successful response:
 
     {"type":true,"data":[{"order_id":19769,"tariff":{"id":5,"name":"First"},"location":"msk","vps_list":[{"id":12970,"os":"ubuntu_20","vps_ip":"123.123.123.13","vps_status":"runned"}],"finish_time":{"epoch":1886424023,"days_remaining":1665,"date":"11.10.2029 17:40"}}]}
 
-The rental end date is indicated in Moscow time zone.
+The rental finish date is indicated in Moscow time zone.
 
 Possible values ​​for the `"vps_status"` parameter:
 
@@ -140,7 +140,7 @@ Example of a successful response:
 
     {"type":true,"data":{"order_id":10000,"tariff":{"id":5,"name":"First"},"location":"msk","vps_list":[{"id":10000,"os":"ubuntu_20","vps_ip":"123.123.123.13","vps_status":"runned"}],"finish_time":{"epoch":1886424023,"days_remaining":1662,"date":"11.10.2029 17:40"}}}
 
-The rental end date is indicated in Moscow time zone.
+The rental finish date is indicated in Moscow time zone.
 
 Possible values ​​for the `"vps_status"` parameter:
 
