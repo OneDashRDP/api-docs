@@ -64,6 +64,7 @@ Example of a successful response:
     {"type":true,"data":[{"id":5,"name":"First","msk_prices":[{"price":49,"discount":0,"period":7},{"price":59,"discount":15,"period":10}],"ams_prices":[{"price":129,"discount":0,"period":7},{"price":159,"discount":15,"period":10}],"currency":"USD","config_info":{"cpu":1,"ram":1,"hard":100}}]}
 
 `"msk_prices"` - prices in Moscow location
+
 `"ams_prices"` - prices in location Amsterdam
 
 Prices are indicated for each rental period separately.
@@ -83,7 +84,9 @@ The rental end date is indicated in Moscow time zone.
 Possible values ​​for the `"vps_status"` parameter:
 
 `"runned"` - the server is up and running
+
 `"not_runned"` - server in the process of starting
+
 `"cloning"` - server in the process of cloning
 
 # Create a vps
@@ -142,7 +145,9 @@ The rental end date is indicated in Moscow time zone.
 Possible values ​​for the `"vps_status"` parameter:
 
 `"runned"` - the server is up and running
+
 `"not_runned"` - server in the process of starting
+
 `"cloning"` - server in the process of cloning
 
 # Change of tariff
