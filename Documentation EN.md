@@ -18,7 +18,7 @@ Example of a failed request:
 
 # Authorization
 
-In the body of each request from the client, the client's API key must be present in the "Api-Key" header:
+In the body of each request, the client's API key must be present in the "Api-Key" header:
 
     Api-Key: 438b8af15a130133803f0ed0a2ae7d97d58b4605
 
