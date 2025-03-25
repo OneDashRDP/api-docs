@@ -65,7 +65,7 @@ Example of a successful response:
 
 `"msk_prices"` - prices in Moscow location
 
-`"ams_prices"` - prices in location Amsterdam
+`"ams_prices"` - prices in Amsterdam location
 
 Prices are indicated for each rental period separately.
 
