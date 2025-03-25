@@ -103,6 +103,9 @@
 | `location`    | локация сервера: `"msk"` `"ams"`   |
 | `system`    | операция система: [список ОС](#Список-доступных-ОС)    |
 | `count`    | количество впс: от 1 до 10 шт.    |
+| `additional_options["static_ip"]`    | доп. опция Выделенный IP: true/false (по умолчанию false)    |
+| `additional_options["nvme"]`    | доп. опция диск NVME: true/false (по умолчанию false)    |
+| `additional_options["backup"]`    | доп. опция рез. копирования: true/false (по умолчанию false)    |
 
 Возможные ошибки:
 
