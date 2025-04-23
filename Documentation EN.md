@@ -109,6 +109,7 @@ Possible parameters:
 | `additional_options["static_ip"]`    | additional option Static IP: true/false (default false)    |
 | `additional_options["nvme"]`    | additional option NVME disk: true/false (default false)    |
 | `additional_options["backup"]`    | additional option backup: true/false (default false)   |
+| `processor`    | processor type: intel/amd (default intel)    |
 
 
 Possible errors:
