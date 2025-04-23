@@ -109,6 +109,7 @@
 | `additional_options["static_ip"]`    | доп. опция Выделенный IP: true/false (по умолчанию false)    |
 | `additional_options["nvme"]`    | доп. опция диск NVME: true/false (по умолчанию false)    |
 | `additional_options["backup"]`    | доп. опция рез. копирования: true/false (по умолчанию false)    |
+| `processor`    | тип процессора: intel/amd (по умолчанию intel)    |
 
 Возможные ошибки:
 
