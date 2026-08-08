@@ -397,6 +397,7 @@ Creates VPS instances and charges the account balance. An IP whitelist and `conf
 | `location` | string | Code from `GET /api/locations` |
 | `processor` | string | Type from `GET /api/locations` |
 | `system` | string | Code from `GET /api/systems` |
+| `skip_desktop_link` | boolean | Do not create the OneDash “Services and Contacts” shortcut (`links.onedash.net`) on the Windows public desktop. Optional; defaults to `false` and has no effect on Linux |
 | `count` | integer | Number of VPS instances, from `1` to `10` |
 | `additional_options.static_ip` | boolean | Dedicated IP |
 | `additional_options.nvme` | boolean | NVMe storage |
@@ -409,7 +410,8 @@ Creates VPS instances and charges the account balance. An IP whitelist and `conf
   "tariff_id": 5,
   "location": "msk",
   "processor": "intel",
-  "system": "ubuntu_22",
+  "system": "windows_10_ru",
+  "skip_desktop_link": true,
   "count": 1,
   "additional_options": {
     "static_ip": true,
@@ -419,6 +421,8 @@ Creates VPS instances and charges the account balance. An IP whitelist and `conf
   "confirm": true
 }
 ```
+
+In this example, the OneDash shortcut pointing to `links.onedash.net` is not created on the Windows desktop. Send `skip_desktop_link` as a JSON boolean (`true` or `false`), not as a string. If the parameter is omitted or set to `false`, the shortcut is created as usual.
 
 ```json
 {
