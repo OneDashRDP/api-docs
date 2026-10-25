@@ -67,6 +67,7 @@ Common HTTP status codes:
 | `403` | Current IP is not allowed or an IP whitelist is required |
 | `404` | Object or method not found |
 | `409` | State conflict or another operation is already running |
+| `415` | This method requires a JSON body |
 | `422` | Invalid parameters or missing confirmation |
 | `429` | Rate limit exceeded; honor the `Retry-After` header |
 | `500` / `503` | Temporary service error |
@@ -82,6 +83,28 @@ For sensitive operations:
 3. When a method requires confirmation, include `"confirm": true`.
 
 Missing confirmation returns the `confirmation_required` error.
+
+## Repeated requests
+
+Snapshot creation, rollback, and deletion, backup synchronization, restoration, and deletion, IP changes, location changes, processor changes, and additional option purchases require an IP whitelist, `"confirm": true`, and an `Idempotency-Key` header.
+
+```http
+Idempotency-Key: 71a6850d-5600-4b18-b184-c447eeac8f31
+```
+
+Use a separate key for each operation. Keys must contain 16 to 128 characters; Latin letters, digits, `.`, `_`, `:`, and `-` are allowed.
+
+Repeating a request with the same key, method, ID, and parameters returns the stored response without executing the operation again. The `Idempotency-Replayed: true` header means that the response came from the journal. Keys apply across the account, including requests made with different API keys. They do not expire automatically.
+
+Changing the parameters returns HTTP `409` and `idempotency_conflict`. If the previous request is still running, the response contains `operation_in_progress`. Wait for its result and repeat the request with the original key.
+
+After `operation_outcome_unknown`, a connection failure, or a timeout, do not create a new key for the same operation. Check the VPS or order state and contact support if necessary. An operation with an unknown outcome is not retried automatically.
+
+For these methods, send parameters only in the JSON body. The `confirm`, `include_ram`, `allow_data_loss`, and additional option flags must be JSON booleans, such as `true`, not the string `"true"` or the number `1`. Unknown parameters and `null` values are not accepted. Invalid parameters return HTTP `422`; other body formats return HTTP `415`.
+
+These POST methods allow 20 requests per minute per API key and method, including retries. New read methods allow 60 requests per minute; purchase history allows 6. Exceeding the limit returns HTTP `429` with `Retry-After`.
+
+Paid changes return `status=payment_required` and a `payment_url`. Complete the payment using this link. Creating a payment link does not mean the change has been completed and does not automatically charge the account balance. HTTP `202` with `status=accepted` means that the operation has been accepted; check the result through the VPS or order information.
 
 ## Service status
 
@@ -247,6 +270,30 @@ Parameters:
 
 The balance changes only after the payment link has been paid successfully.
 
+### GET /api/balance/transactions
+
+Returns the latest 50 balance transactions for the current account. No parameters are required.
+
+```json
+{
+  "type": true,
+  "data": {
+    "items": [
+      {
+        "created_at": 1893456000,
+        "direction": "plus",
+        "amount": "100.00",
+        "currency": "RUB",
+        "info": "Balance top-up"
+      }
+    ],
+    "limit": 50
+  }
+}
+```
+
+`created_at` is a Unix timestamp in seconds. `amount` is a string without a currency symbol. `direction` preserves the value from the account dashboard journal. This method returns balance transactions; request purchase history separately.
+
 ## Orders
 
 ### GET /api/orders
@@ -348,6 +395,118 @@ A successful request returns HTTP `202`:
 
 Request the order information again after completion.
 
+### GET /api/orders/history
+
+Returns purchase history for the current account: orders, additional options, IP changes, location changes, and processor changes. The history may include unpaid purchases.
+
+Query parameters:
+
+| Parameter | Default | Limit |
+|---|---|---|
+| `from` | 29 days before `to` | Date in `YYYY-MM-DD` format |
+| `to` | Current date | Date in `YYYY-MM-DD` format, no later than today |
+| `page` | `1` | From `1` to `1000000` |
+| `per_page` | `50` | From `1` to `100` |
+
+Both dates are included in the range and use Moscow time. The maximum range is 31 calendar days. Send several requests for a longer period.
+
+```json
+{
+  "type": true,
+  "data": {
+    "items": [
+      {
+        "id": "order_10001",
+        "title": "VPS purchase",
+        "status": "success",
+        "status_text": "Successful",
+        "amount": "300.00",
+        "currency": "RUB",
+        "created_at": 1893456000,
+        "info": []
+      }
+    ],
+    "pagination": {
+      "total": 1,
+      "per_page": 50,
+      "current_page": 1,
+      "last_page": 1,
+      "from": 1893445200,
+      "to": 1896037199
+    }
+  }
+}
+```
+
+`pagination.from` and `pagination.to` are the requested period boundaries as Unix timestamps, not row numbers. If `page` exceeds the number of pages, the account dashboard returns the last page.
+
+`status=success` means a successful purchase; `status=fail` means a purchase without confirmed payment. `info` contains additional details without HTML. Repeat purchase links from the account dashboard are not returned.
+
+### POST /api/orders/{id}/location
+
+Changes the location of an existing order. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+```json
+{
+  "location": "ams",
+  "confirm": true
+}
+```
+
+Use a location code from `GET /api/locations`. Availability, order restrictions, and pricing follow the account dashboard rules.
+
+If payment is required:
+
+```json
+{
+  "type": true,
+  "data": {
+    "order_id": 10001,
+    "status": "payment_required",
+    "payment_url": "https://pay.example.test/payment/example"
+  }
+}
+```
+
+If no additional payment is required, the request returns HTTP `202` and `status=accepted`. After completion, refresh the order and VPS information.
+
+### POST /api/orders/{id}/processor
+
+Changes the processor type of an existing order. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+```json
+{
+  "processor": "amd",
+  "confirm": true
+}
+```
+
+`processor` accepts `intel` or `amd`. Send the desired processor type. If it is already selected, the method returns HTTP `200`, `status=unchanged`, and the current `processor` value.
+
+If payment is required, the response contains `status=payment_required` and `payment_url`. If no additional payment is required, the request returns HTTP `202` and `status=accepted`. Availability and restrictions follow the account dashboard rules.
+
+### POST /api/orders/{id}/options
+
+Adds a dedicated IP, NVMe storage, or backups to an existing order. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `static_ip` | boolean | Purchase a dedicated IP; defaults to `false` |
+| `nvme` | boolean | Purchase NVMe storage; defaults to `false` |
+| `backup` | boolean | Purchase backups; defaults to `false` |
+| `confirm` | boolean | Must be `true` |
+
+```json
+{
+  "static_ip": true,
+  "nvme": false,
+  "backup": true,
+  "confirm": true
+}
+```
+
+Set at least one option to `true`. This method adds options; `false` does not disable an existing service. The account dashboard calculates the price for the order and its remaining rental period. The response contains `status=payment_required` and `payment_url`.
+
 ## VPS
 
 ### GET /api/vps
@@ -385,6 +544,37 @@ Query parameters:
   }
 }
 ```
+
+### GET /api/vps/availability
+
+Checks configuration availability before creating a VPS.
+
+Query parameters:
+
+| Parameter | Default | Description |
+|---|---|---|
+| `tariff_id` | — | Required tariff ID |
+| `location` | `msk` | Location code from `GET /api/locations` |
+| `processor` | `intel` | `intel` or `amd` |
+| `system` | `ubuntu_24` | OS code from `GET /api/systems` |
+| `count` | `1` | From `1` to `10` |
+| `static_ip` | `0` | `0` or `1` |
+| `nvme` | `0` | `0` or `1` |
+
+```json
+{
+  "type": true,
+  "data": {
+    "available": 2,
+    "max_available": 3,
+    "requested": 2,
+    "can_create": true,
+    "reason": null
+  }
+}
+```
+
+This method uses the account dashboard availability check. Results may be cached for up to 30 seconds and do not reserve resources. Availability is checked again before purchase. An unknown or inactive location and processor combination returns `configuration_unavailable`.
 
 ### POST /api/vps/create
 
@@ -624,6 +814,45 @@ Possible `status` values: `queued`, `processing`, `success`, `failed`.
 }
 ```
 
+### GET /api/vps/{id}/ips
+
+Returns IP change options for a VPS belonging to the current account.
+
+```json
+{
+  "type": true,
+  "data": {
+    "vps_id": 20001,
+    "choices": [
+      {"value": "203.0.113.21", "ip": "203.0.113.21"}
+    ],
+    "requires_recreate": false,
+    "first_ip_change_free_available": false,
+    "price": "100",
+    "currency": "RUB"
+  }
+}
+```
+
+For a dedicated IP, `value` contains the address. For a shared IP, `value` contains the target node ID as a string, `ip` is the displayed address, and `requires_recreate=true` warns that the VPS will be recreated and its data lost. Send `value` in the IP change request.
+
+The list and price are not reserved. Address availability and eligibility for a free change are checked again when the request is submitted.
+
+### POST /api/vps/{id}/ip
+
+Requests an IP change for an existing VPS. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+```json
+{
+  "new_ip": "203.0.113.21",
+  "confirm": true
+}
+```
+
+`new_ip` is the string from the `value` field returned by `GET /api/vps/{id}/ips`. If `requires_recreate=true`, also send `"allow_data_loss": true`. Without this confirmation, the method returns `data_loss_confirmation_required`.
+
+A paid change returns `status=payment_required` and `payment_url`. A free change may return `status=completed` or HTTP `202` with `status=accepted`. Refresh the VPS connection details after completion.
+
 ### GET /api/vps/{id}/snapshots
 
 Returns VPS snapshots and the state of related operations.
@@ -640,6 +869,65 @@ Returns VPS snapshots and the state of related operations.
 }
 ```
 
+### POST /api/vps/{id}/snapshots
+
+Creates a VPS snapshot. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `title` | string | Title up to 120 characters; defaults to an empty string |
+| `description` | string | Description up to 500 characters; defaults to an empty string |
+| `include_ram` | boolean | Save memory state; defaults to `false` |
+| `confirm` | boolean | Must be `true` |
+
+```json
+{
+  "title": "Before update",
+  "description": "",
+  "include_ram": false,
+  "confirm": true
+}
+```
+
+A successful request returns HTTP `202`:
+
+```json
+{
+  "type": true,
+  "data": {
+    "vps_id": 20001,
+    "snapshot_id": 30001,
+    "status": "accepted"
+  }
+}
+```
+
+Check the snapshot state through `GET /api/vps/{id}/snapshots`. Creation limits and restrictions on concurrent operations are the same as in the account dashboard.
+
+### POST /api/vps/{id}/snapshots/{snapshot_id}/rollback
+
+Restores a VPS from its snapshot. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+```json
+{
+  "confirm": true
+}
+```
+
+Changes made after the snapshot was created will be lost. A successful request returns HTTP `202`, `vps_id`, `snapshot_id`, and `status=accepted`. Check the VPS and snapshot state before starting another operation.
+
+### POST /api/vps/{id}/snapshots/{snapshot_id}/delete
+
+Deletes a VPS snapshot. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+```json
+{
+  "confirm": true
+}
+```
+
+A successful request returns HTTP `202`, `vps_id`, `snapshot_id`, and `status=accepted`. Snapshot deletion is irreversible.
+
 ### GET /api/vps/{id}/backups
 
 Returns backups. This method is available only when the backup option is enabled for the VPS.
@@ -655,6 +943,53 @@ Returns backups. This method is available only when the backup option is enabled
   }
 }
 ```
+
+### POST /api/vps/{id}/backups/sync
+
+Synchronizes the VPS backup list with the storage server. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+```json
+{
+  "confirm": true
+}
+```
+
+```json
+{
+  "type": true,
+  "data": {
+    "vps_id": 20001,
+    "status": "completed",
+    "count": 2
+  }
+}
+```
+
+Synchronization updates the list of existing backups and does not create a new backup. Afterwards, request `GET /api/vps/{id}/backups`.
+
+### POST /api/vps/{id}/backups/{backup_id}/restore
+
+Restores a VPS from its backup. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+```json
+{
+  "confirm": true
+}
+```
+
+Current VPS data will be replaced with the backup data. A successful request returns HTTP `202`, `vps_id`, `backup_id`, and `status=accepted`. Check the VPS and backup state until the operation finishes.
+
+### POST /api/vps/{id}/backups/{backup_id}/delete
+
+Deletes a VPS backup. An IP whitelist, `confirm=true`, and `Idempotency-Key` are required.
+
+```json
+{
+  "confirm": true
+}
+```
+
+A successful request returns HTTP `202`, `vps_id`, `backup_id`, and `status=accepted`. Backup deletion is irreversible.
 
 ### POST /api/vps/{id}/reinstall
 
@@ -763,6 +1098,20 @@ This operation is irreversible. Do not repeat the request after a successful res
 | `POST /api/vps/{id}/reinstall` | Reinstall OS |
 | `GET /api/vps/{id}/delete-info` | Deletion calculation |
 | `POST /api/vps/{id}/delete` | Delete VPS |
+| `POST /api/vps/{id}/snapshots` | Create snapshot |
+| `POST /api/vps/{id}/snapshots/{snapshot_id}/rollback` | Roll back to snapshot |
+| `POST /api/vps/{id}/snapshots/{snapshot_id}/delete` | Delete snapshot |
+| `POST /api/vps/{id}/backups/sync` | Synchronize backups |
+| `POST /api/vps/{id}/backups/{backup_id}/restore` | Restore backup |
+| `POST /api/vps/{id}/backups/{backup_id}/delete` | Delete backup |
+| `GET /api/vps/{id}/ips` | IP change options |
+| `POST /api/vps/{id}/ip` | Change IP |
+| `POST /api/orders/{id}/location` | Change location |
+| `POST /api/orders/{id}/processor` | Change processor |
+| `POST /api/orders/{id}/options` | Additional options |
+| `GET /api/vps/availability` | Configuration availability |
+| `GET /api/balance/transactions` | Balance transactions |
+| `GET /api/orders/history` | Purchase history |
 
 ## Integration recommendations
 
