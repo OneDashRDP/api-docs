@@ -623,6 +623,8 @@ In this example, the OneDash shortcut pointing to `links.onedash.net` is not cre
 
 Creation is asynchronous. Wait for the VPS to appear as ready in `GET /api/vps` and check `credentials_ready`.
 
+If the order has already been paid for but creation has not been confirmed, the response uses HTTP status `202`, the same `order_id`, and `"processing": true`. Do not repeat `POST /api/vps/create`: check this order through `POST /api/orders/info` and the VPS list. Repeating the create request places a new order.
+
 ### POST /api/vps/clone
 
 Clones a source VPS to 1–5 target VPS instances. An IP whitelist and `confirm=true` are required.
